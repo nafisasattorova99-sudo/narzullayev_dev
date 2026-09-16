@@ -2,18 +2,33 @@
 Django settings for portfolio_project.
 """
 
+import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-# Replace this with an environment variable before deploying.
-SECRET_KEY = 'django-insecure-CHANGE-ME-BEFORE-DEPLOYMENT-abdulhaq-portfolio'
+# On Render, set a SECRET_KEY environment variable. Locally, this
+# insecure fallback is used automatically so the site still runs.
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-CHANGE-ME-BEFORE-DEPLOYMENT-abdulhaq-portfolio',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DJANGO_DEBUG=False on Render. Defaults to True for local development.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+# Comma-separated list of allowed hosts, e.g.
+#   ALLOWED_HOSTS=portfolio-service.onrender.com,www.example.com
+# Falls back to '*' locally so nothing breaks during development.
+_allowed_hosts = os.environ.get('ALLOWED_HOSTS', '')
+ALLOWED_HOSTS = [h.strip() for h in _allowed_hosts.split(',') if h.strip()] or ['*']
+
+# Render sits behind a proxy that terminates TLS, so trust its forwarded
+# protocol header and allow HTTPS CSRF checks to pass for the deployed host.
+CSRF_TRUSTED_ORIGINS = [f'https://{h}' for h in ALLOWED_HOSTS if h != '*']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Application definition
 
@@ -114,7 +129,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 #        EMAIL_HOST_PASSWORD=the_16_char_app_password
 #   (Never put your real Gmail password directly in this file.)
 # ---------------------------------------------------------------------------
-import os
 
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
