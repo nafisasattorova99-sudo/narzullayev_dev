@@ -1,0 +1,202 @@
+{% extends 'portfolio/demo/base.html' %}
+
+{% block title %}Todo REST API{% endblock %}
+{% block demo_label %}Todo REST API — live demo{% endblock %}
+
+{% block content %}
+<header class="demo-header">
+  <div class="demo-container">
+    <h1>Todo <span class="grad">REST API</span></h1>
+    <p>Chapdagi ilova o'ngdagi haqiqiy API endpointlariga murojaat qiladi. Har bir amal real HTTP so'rov.</p>
+  </div>
+</header>
+
+<main class="demo-main">
+  <div class="demo-container">
+    <div class="todo-layout">
+
+      <!-- Todo UI -->
+      <section class="todo-panel glass">
+        <h2>Vazifalar</h2>
+
+        <div class="todo-add">
+          <input type="text" id="task-input" class="demo-input" placeholder="Yangi vazifa yozing…">
+          <button class="btn btn-primary btn-sm" id="task-add">Qo'shish</button>
+        </div>
+
+        <div class="todo-priority-row">
+          <button class="demo-chip priority-pick is-active" data-priority="low">Past</button>
+          <button class="demo-chip priority-pick" data-priority="medium">O'rta</button>
+          <button class="demo-chip priority-pick" data-priority="high">Yuqori</button>
+        </div>
+
+        <div class="demo-toolbar" style="margin-bottom:18px">
+          <button class="demo-chip filter-pick is-active" data-filter="all">Barchasi</button>
+          <button class="demo-chip filter-pick" data-filter="active">Bajarilmagan</button>
+          <button class="demo-chip filter-pick" data-filter="done">Bajarilgan</button>
+        </div>
+
+        <div class="todo-list" id="task-list"></div>
+      </section>
+
+      <!-- API console -->
+      <aside class="api-console glass">
+        <h2>API endpointlar</h2>
+        <p>Bosib ko'ring — javob pastda chiqadi.</p>
+
+        <div class="api-endpoint" data-method="GET" data-url="/demo/todo/api/tasks/">
+          <span class="api-method get">GET</span> /api/tasks/
+        </div>
+        <div class="api-endpoint" data-method="GET" data-url="/demo/todo/api/tasks/?completed=false">
+          <span class="api-method get">GET</span> /api/tasks/?completed=false
+        </div>
+        <div class="api-endpoint" data-method="GET" data-url="/demo/todo/api/tasks/?priority=high">
+          <span class="api-method get">GET</span> /api/tasks/?priority=high
+        </div>
+        <div class="api-endpoint" data-method="POST" data-url="/demo/todo/api/tasks/">
+          <span class="api-method post">POST</span> /api/tasks/
+        </div>
+
+        <div class="api-response" id="api-response">// Javob shu yerda ko'rinadi</div>
+      </aside>
+
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const API = '/demo/todo/api/tasks/';
+  const listEl = document.getElementById('task-list');
+  const inputEl = document.getElementById('task-input');
+  const respEl = document.getElementById('api-response');
+  let priority = 'low';
+  let filter = 'all';
+
+  function csrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  function show(label, data) {
+    respEl.textContent = '// ' + label + '\n' + JSON.stringify(data, null, 2);
+  }
+
+  async function load() {
+    let url = API;
+    if (filter === 'active') url += '?completed=false';
+    if (filter === 'done') url += '?completed=true';
+    const r = await fetch(url);
+    const data = await r.json();
+    render(data.results || []);
+  }
+
+  function render(tasks) {
+    if (!tasks.length) {
+      listEl.innerHTML = '<p style="color:var(--text-2);font-size:.9rem;padding:18px 0">Vazifa yo\'q.</p>';
+      return;
+    }
+    listEl.innerHTML = tasks.map(t => `
+      <div class="todo-item ${t.completed ? 'done' : ''}" data-id="${t.id}">
+        <div class="todo-check ${t.completed ? 'checked' : ''}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#06070c" stroke-width="3.5"><path d="M20 6L9 17l-5-5"/></svg>
+        </div>
+        <span class="todo-title">${escapeHtml(t.title)}</span>
+        <span class="todo-badge ${t.priority}">${t.priority}</span>
+        <button class="todo-del" aria-label="O'chirish">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>`).join('');
+  }
+
+  function escapeHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  async function addTask() {
+    const title = inputEl.value.trim();
+    if (!title) return;
+    const r = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify({ title, priority }),
+    });
+    const data = await r.json();
+    show('POST ' + API + ' → ' + r.status, data);
+    inputEl.value = '';
+    load();
+  }
+
+  document.getElementById('task-add').addEventListener('click', addTask);
+  inputEl.addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+
+  listEl.addEventListener('click', async (e) => {
+    const item = e.target.closest('.todo-item');
+    if (!item) return;
+    const id = item.dataset.id;
+
+    if (e.target.closest('.todo-check')) {
+      const done = item.classList.contains('done');
+      const r = await fetch(`${API}${id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+        body: JSON.stringify({ completed: !done }),
+      });
+      show(`PATCH ${API}${id}/ → ${r.status}`, await r.json());
+      load();
+    }
+
+    if (e.target.closest('.todo-del')) {
+      const r = await fetch(`${API}${id}/`, {
+        method: 'DELETE',
+        headers: { 'X-CSRFToken': csrf() },
+      });
+      show(`DELETE ${API}${id}/ → ${r.status}`, { deleted: true, id: Number(id) });
+      load();
+    }
+  });
+
+  document.querySelectorAll('.priority-pick').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.priority-pick').forEach(x => x.classList.remove('is-active'));
+      b.classList.add('is-active');
+      priority = b.dataset.priority;
+    });
+  });
+
+  document.querySelectorAll('.filter-pick').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pick').forEach(x => x.classList.remove('is-active'));
+      b.classList.add('is-active');
+      filter = b.dataset.filter;
+      load();
+    });
+  });
+
+  document.querySelectorAll('.api-endpoint').forEach(ep => {
+    ep.addEventListener('click', async () => {
+      const method = ep.dataset.method;
+      const url = ep.dataset.url;
+      if (method === 'GET') {
+        const r = await fetch(url);
+        show(`GET ${url} → ${r.status}`, await r.json());
+      } else {
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          body: JSON.stringify({ title: 'API orqali qo\'shilgan vazifa', priority: 'high' }),
+        });
+        show(`POST ${url} → ${r.status}`, await r.json());
+        load();
+      }
+    });
+  });
+
+  load();
+})();
+</script>
+{% endblock %}

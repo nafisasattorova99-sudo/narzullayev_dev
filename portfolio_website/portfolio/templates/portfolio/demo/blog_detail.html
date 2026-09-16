@@ -1,0 +1,57 @@
+{% extends 'portfolio/demo/base.html' %}
+
+{% block title %}{{ post.title }}{% endblock %}
+{% block demo_label %}Django Blog — live demo{% endblock %}
+
+{% block content %}
+<main class="demo-main" style="padding-top:46px">
+  <div class="demo-container">
+
+    <p style="margin-bottom:22px">
+      <a href="{% url 'portfolio:demo_blog' %}" class="demo-back">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Barcha maqolalar
+      </a>
+    </p>
+
+    <article class="post-article glass">
+      <div class="post-meta">
+        <span class="post-cat">{{ post.category }}</span>
+        <span>{{ post.author }}</span>
+        <span>{{ post.created_at|date:"d M Y" }}</span>
+        <span>{{ post.views }} ko'rishlar</span>
+      </div>
+
+      <h1>{{ post.title }}</h1>
+
+      <div class="post-body">
+        {{ post.body|linebreaks }}
+      </div>
+
+      <section class="comment-section">
+        <h3>Izohlar ({{ comments|length }})</h3>
+
+        {% for c in comments %}
+          <div class="comment">
+            <div class="comment-head">
+              <strong>{{ c.author }}</strong>
+              <span>{{ c.created_at|date:"d M Y, H:i" }}</span>
+            </div>
+            <p>{{ c.body }}</p>
+          </div>
+        {% empty %}
+          <p style="color:var(--text-2);font-size:0.92rem">Hali izoh yo'q — birinchi bo'ling!</p>
+        {% endfor %}
+
+        <form class="comment-form" method="post">
+          {% csrf_token %}
+          <input type="text" name="author" class="demo-input" placeholder="Ismingiz" required>
+          <textarea name="body" class="demo-input" rows="3" placeholder="Izohingizni yozing…" required></textarea>
+          <div><button type="submit" class="btn btn-primary btn-sm">Izoh qoldirish</button></div>
+        </form>
+      </section>
+    </article>
+
+  </div>
+</main>
+{% endblock %}

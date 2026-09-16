@@ -1,0 +1,151 @@
+{% extends 'portfolio/demo/base.html' %}
+
+{% block title %}AI Study Website{% endblock %}
+{% block demo_label %}AI Study — live demo{% endblock %}
+
+{% block content %}
+<header class="demo-header">
+  <div class="demo-container">
+    <h1>AI <span class="grad">Study</span> Website</h1>
+    <p>Konspektingizni joylashtiring — tizim uni tahlil qilib, xulosa, asosiy terminlar va test savollarini yaratadi.</p>
+  </div>
+</header>
+
+<main class="demo-main">
+  <div class="demo-container">
+    <div class="study-layout">
+
+      <section class="study-panel glass">
+        <h2>Konspektingiz</h2>
+        <textarea id="notes" class="demo-input" rows="12"
+                  placeholder="Lektsiya konspekti yoki maqola matnini shu yerga joylashtiring…"></textarea>
+        <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" id="generate">Tahlil qilish</button>
+          <button class="btn btn-ghost btn-sm" id="sample">Namuna matn</button>
+        </div>
+        <p id="err" style="color:var(--danger);font-size:.85rem;margin-top:12px;display:none"></p>
+      </section>
+
+      <section class="study-panel glass">
+        <h2>Natija</h2>
+        <div id="result">
+          <p class="study-empty">Chapga matn kiriting va "Tahlil qilish" tugmasini bosing.</p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const notes = document.getElementById('notes');
+  const result = document.getElementById('result');
+  const err = document.getElementById('err');
+
+  const SAMPLE = `Django is a high-level Python web framework that encourages rapid development and clean, pragmatic design. It follows the model-template-view architectural pattern and includes an object-relational mapper that lets developers describe their database layout in Python code.
+The framework ships with an automatic admin interface, which reads metadata from the models and provides a production-ready interface for managing content. Security is a core priority, so Django helps developers avoid common mistakes such as SQL injection, cross-site scripting, and cross-site request forgery.
+Django REST Framework builds on top of Django and makes it straightforward to expose data as a JSON API. It provides serializers that convert model instances into JSON, authentication classes for protecting endpoints, and pagination for handling large result sets.`;
+
+  function csrf() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : '';
+  }
+
+  function esc(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  document.getElementById('sample').addEventListener('click', () => {
+    notes.value = SAMPLE;
+  });
+
+  document.getElementById('generate').addEventListener('click', async () => {
+    err.style.display = 'none';
+    const text = notes.value.trim();
+    result.innerHTML = '<p class="study-empty">Tahlil qilinmoqda…</p>';
+
+    try {
+      const r = await fetch('/demo/study/api/generate/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+        body: JSON.stringify({ text }),
+      });
+      const data = await r.json();
+
+      if (!r.ok) {
+        err.textContent = data.error || 'Xatolik yuz berdi.';
+        err.style.display = 'block';
+        result.innerHTML = '<p class="study-empty">Natija yo\'q.</p>';
+        return;
+      }
+
+      render(data);
+    } catch (e) {
+      err.textContent = 'Serverga ulanib bo\'lmadi.';
+      err.style.display = 'block';
+    }
+  });
+
+  function render(d) {
+    let html = `
+      <div class="study-stats">
+        <div class="study-stat"><div class="n">${d.stats.words}</div><div class="l">so'z</div></div>
+        <div class="study-stat"><div class="n">${d.stats.sentences}</div><div class="l">gap</div></div>
+        <div class="study-stat"><div class="n">${d.stats.reading_minutes}</div><div class="l">daqiqa o'qish</div></div>
+      </div>
+
+      <div class="study-block">
+        <h3>Qisqacha xulosa</h3>
+        <ul class="study-summary">
+          ${d.summary.map(s => `<li>${esc(s)}.</li>`).join('')}
+        </ul>
+      </div>
+
+      <div class="study-block">
+        <h3>Asosiy terminlar</h3>
+        <div class="term-pills">
+          ${d.key_terms.map(t => `<span class="term-pill">${esc(t.term)} · ${t.count}</span>`).join('')}
+        </div>
+      </div>`;
+
+    if (d.quiz.length) {
+      html += `<div class="study-block"><h3>Test savollari</h3>`;
+      d.quiz.forEach((q, i) => {
+        html += `
+          <div class="quiz-card" data-answer="${esc(q.answer.toLowerCase())}">
+            <div class="quiz-q">${i + 1}. ${esc(q.question)}</div>
+            <div class="quiz-row">
+              <input type="text" class="demo-input quiz-input" placeholder="Javobingiz…">
+              <button class="btn btn-ghost btn-sm quiz-check">Tekshirish</button>
+            </div>
+            <div class="quiz-feedback"></div>
+          </div>`;
+      });
+      html += `</div>`;
+    }
+
+    result.innerHTML = html;
+  }
+
+  result.addEventListener('click', (e) => {
+    if (!e.target.classList.contains('quiz-check')) return;
+    const card = e.target.closest('.quiz-card');
+    const val = card.querySelector('.quiz-input').value.trim().toLowerCase();
+    const fb = card.querySelector('.quiz-feedback');
+    const correct = card.dataset.answer;
+    if (val === correct) {
+      fb.textContent = '✓ To\'g\'ri!';
+      fb.className = 'quiz-feedback show right';
+    } else {
+      fb.textContent = '✗ To\'g\'ri javob: ' + correct;
+      fb.className = 'quiz-feedback show wrong';
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends 'portfolio/demo/base.html' %}
+
+{% block title %}Django Blog{% endblock %}
+{% block demo_label %}Django Blog — live demo{% endblock %}
+
+{% block content %}
+<header class="demo-header">
+  <div class="demo-container">
+    <h1>Django <span class="grad">Blog</span></h1>
+    <p>Qidiruv, kategoriyalar, maqola sahifasi va izohlar — hammasi Django va bazada ishlaydi.</p>
+  </div>
+</header>
+
+<main class="demo-main">
+  <div class="demo-container">
+
+    <form class="demo-toolbar" method="get">
+      <div class="demo-search">
+        <input type="text" name="q" value="{{ query }}" class="demo-input"
+               placeholder="Maqolalarni qidirish…">
+        <button type="submit" class="btn btn-primary btn-sm">Qidirish</button>
+      </div>
+    </form>
+
+    <div class="demo-toolbar">
+      <a href="?" class="demo-chip {% if active_category == 'all' %}is-active{% endif %}">Barchasi</a>
+      {% for cat in categories %}
+        <a href="?category={{ cat }}"
+           class="demo-chip {% if active_category|lower == cat|lower %}is-active{% endif %}">{{ cat }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="post-grid">
+      {% for post in posts %}
+        <a href="{% url 'portfolio:demo_blog_detail' post.slug %}" class="post-card glass">
+          <div class="post-meta">
+            <span class="post-cat">{{ post.category }}</span>
+            <span>{{ post.created_at|date:"d M Y" }}</span>
+            <span>{{ post.views }} ko'rishlar</span>
+            <span>{{ post.comments.count }} izoh</span>
+          </div>
+          <h2>{{ post.title }}</h2>
+          <p>{{ post.excerpt }}</p>
+        </a>
+      {% empty %}
+        <div class="demo-empty">
+          <p>Hech narsa topilmadi{% if query %} — "{{ query }}"{% endif %}.</p>
+          <p style="margin-top:14px"><a href="?" class="btn btn-ghost btn-sm">Barchasini ko'rsatish</a></p>
+        </div>
+      {% endfor %}
+    </div>
+
+  </div>
+</main>
+{% endblock %}
